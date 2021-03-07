@@ -83,6 +83,17 @@ class ImageCropFragment : Fragment() {
 
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        view.findViewById<View>(R.id.buttonRotate).setOnClickListener {
+            binding.cropView.rotateBitmap(90f)
+
+        }
+        view.findViewById<View>(R.id.buttonRotate_reset).setOnClickListener {
+            binding.cropView.resetRotate()
+        }
+
+    }
+
     override fun onResume() {
         super.onResume()
         binding.recyclerViewAspectRatios.reset()

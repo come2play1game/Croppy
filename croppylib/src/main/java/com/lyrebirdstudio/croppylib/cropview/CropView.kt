@@ -214,32 +214,93 @@ class CropView @JvmOverloads constructor(
             if (isBitmapScaleExceedMaxLimit(DOUBLE_TAP_SCALE_FACTOR)) {
 
                 val resetMatrix = Matrix()
-                val scale = max(
+                val targetScale = max(
                     cropRect.width() / bitmapRect.width(),
                     cropRect.height() / bitmapRect.height()
                 )
-                resetMatrix.setScale(scale, scale)
+                resetMatrix.setScale(targetScale, targetScale)
 
-                val translateX = (viewWidth - bitmapRect.width() * scale) / 2f + marginInPixelSize
-                val translateY = (viewHeight - bitmapRect.height() * scale) / 2f + marginInPixelSize
-                resetMatrix.postTranslate(translateX, translateY)
+                val targetTranslateX = (viewWidth - bitmapRect.width() * targetScale) / 2f + marginInPixelSize
+                val targetTranslateY = (viewHeight - bitmapRect.height() * targetScale) / 2f + marginInPixelSize
+                resetMatrix.postTranslate(targetTranslateX, targetTranslateY)
 
-                bitmapMatrix.animateToMatrix(resetMatrix) {
-                    notifyCropRectChanged()
-                    invalidate()
+//                val newBitmapMatrix = bitmapMatrix.clone()
+//                val matrix = Matrix()
+//                matrix.setScale(scale, scale)
+//                matrix.postTranslate(translateX, translateY)
+//                newBitmapMatrix.postConcat(matrix)
+
+                val draggedBitmapRect = RectF()
+                bitmapMatrix.mapRect(draggedBitmapRect, bitmapRect)
+
+                /**
+                 * Scale dragged matrix if it needs to
+                 */
+                val widthScale = cropRect.width() / draggedBitmapRect.width()
+                val heightScale = cropRect.height() / draggedBitmapRect.height()
+                var scale = 1.0f
+
+                if (widthScale < 1.0f || heightScale < 1.0f) {
+                    scale = max(widthScale, heightScale)
                 }
+
+
+                val scaledRect = RectF()
+                val scaledMatrix = Matrix()
+                scaledMatrix.setScale(scale, scale)
+                scaledMatrix.mapRect(scaledRect, draggedBitmapRect)
+
+
+                /**
+                 * Calculate translateX
+                 */
+                var translateX = 0f
+                if (scaledRect.left > cropRect.left) {
+                    translateX = cropRect.left - scaledRect.left
+                }
+
+                if (scaledRect.right < cropRect.right) {
+                    translateX = cropRect.right - scaledRect.right
+                }
+
+                /**
+                 * Calculate translateX
+                 */
+                var translateY = 0f
+                if (scaledRect.top > cropRect.top) {
+                    translateY = cropRect.top - scaledRect.top
+                }
+
+                if (scaledRect.bottom < cropRect.bottom) {
+                    translateY = cropRect.bottom - scaledRect.bottom
+                }
+
+
+                bitmapMatrix.postConcat(Matrix().apply {
+                    setScale(scale,scale)
+                    postTranslate(translateX,translateY)
+                })
+
+//                bitmapMatrix.animateToMatrix(resetMatrix) {
+//                    notifyCropRectChanged()
+//                    invalidate()
+//                }
 
                 return
             }
-
-            bitmapMatrix.animateScaleToPoint(
-                DOUBLE_TAP_SCALE_FACTOR,
-                motionEvent.x,
-                motionEvent.y
-            ) {
-                notifyCropRectChanged()
-                invalidate()
-            }
+            bitmapMatrix.postConcat(Matrix().apply {
+                setScale(DOUBLE_TAP_SCALE_FACTOR, DOUBLE_TAP_SCALE_FACTOR,  motionEvent.x, motionEvent.y)
+            })
+            notifyCropRectChanged()
+            invalidate()
+//            bitmapMatrix.animateScaleToPoint(
+//                DOUBLE_TAP_SCALE_FACTOR,
+//                motionEvent.x,
+//                motionEvent.y
+//            ) {
+//                notifyCropRectChanged()
+//                invalidate()
+//            }
         }
 
         override fun onScale(scaleFactor: Float, focusX: Float, focusY: Float) {
@@ -845,6 +906,36 @@ class CropView @JvmOverloads constructor(
             }
         }
     }
+    fun resetRotate(){
+        rotateBitmap(360F-degreeRotate)
+    }
+
+    var degreeRotate=0f
+    fun rotateBitmap(degree: Float) {
+
+        degreeRotate += degree
+        val pivotPoint = FloatArray(2)
+        val matrix = Matrix()
+        bitmapMatrix.invert(matrix)
+        /**
+         * Inverse focus points
+         */
+        pivotPoint[0] = viewWidth / 2 + marginInPixelSize
+        pivotPoint[1] = viewHeight / 2 + marginInPixelSize
+        matrix.mapPoints(pivotPoint)
+
+
+        bitmapMatrix.preRotate(
+            degree,
+            pivotPoint[0],
+            pivotPoint[1]
+        )
+        settleDraggedBitmap()
+
+        notifyCropRectChanged()
+        invalidate()
+
+    }
 
     /**
      * Move cropRect on user drag cropRect from edges.
@@ -1318,10 +1409,10 @@ class CropView @JvmOverloads constructor(
         matrix.setScale(scale, scale, cropRect.centerX(), cropRect.centerY())
         matrix.postTranslate(translateX, translateY)
         newBitmapMatrix.postConcat(matrix)
-
-        bitmapMatrix.animateToMatrix(newBitmapMatrix) {
-            invalidate()
-        }
+        bitmapMatrix.postConcat(matrix)
+//        bitmapMatrix.animateToMatrix(newBitmapMatrix) {
+//            invalidate()
+//        }
     }
 
     /**
@@ -1396,10 +1487,14 @@ class CropView @JvmOverloads constructor(
         matrix.postTranslate(translateX, translateY)
         newBitmapMatrix.postConcat(matrix)
 
-        bitmapMatrix.animateToMatrix(newBitmapMatrix) {
-            invalidate()
-            notifyCropRectChanged()
-        }
+        bitmapMatrix.postConcat(matrix)
+        invalidate()
+        notifyCropRectChanged()
+
+//        bitmapMatrix.animateToMatrix(newBitmapMatrix) {
+//            invalidate()
+//            notifyCropRectChanged()
+//        }
     }
 
     /**

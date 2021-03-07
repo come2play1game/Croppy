@@ -80,6 +80,30 @@
                                 android:textColor="@color/white"
                                 android:textStyle="bold" />
 
+                            <androidx.appcompat.widget.AppCompatTextView
+                                android:id="@+id/buttonRotate"
+                                android:layout_width="40dp"
+                                android:layout_height="@dimen/height_button_bitmap_dimension"
+                                android:layout_marginLeft="@dimen/margin_4dp"
+                                android:background="@drawable/background_rounded_text"
+                                android:gravity="center"
+                                android:maxLength="6"
+                                android:text="旋转"
+                                android:textColor="@color/white"
+                                android:textStyle="bold" />
+
+                            <androidx.appcompat.widget.AppCompatTextView
+                                android:id="@+id/buttonRotate_reset"
+                                android:layout_width="40dp"
+                                android:layout_height="@dimen/height_button_bitmap_dimension"
+                                android:layout_marginLeft="@dimen/margin_4dp"
+                                android:background="@drawable/background_rounded_text"
+                                android:gravity="center"
+                                android:maxLength="6"
+                                android:text="重置"
+                                android:textColor="@color/white"
+                                android:textStyle="bold" />
+
                         </LinearLayout>
 
                         <androidx.appcompat.widget.AppCompatImageView
