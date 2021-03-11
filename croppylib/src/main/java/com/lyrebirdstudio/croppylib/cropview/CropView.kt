@@ -320,26 +320,27 @@ class CropView @JvmOverloads constructor(
             /**
              * Inverse focus points
              */
-            zoomFocusPoint[0] = focusX
-            zoomFocusPoint[1] = focusY
-            zoomInverseMatrix.mapPoints(zoomFocusPoint)
+            zoomFocusPoint[0] = focusX   //映射后的 focusX
+            zoomFocusPoint[1] = focusY    //映射后的 focusY
+            zoomInverseMatrix.mapPoints(zoomFocusPoint)    // 转换成映射前的放大轴心点 X,Y
 
             /**
              * Scale bitmap matrix
              */
-            bitmapMatrix.preScale(
+            bitmapMatrix.preScale(  // 由于我们的参数为M坐标系的，所以使用右乘
                 scaleFactor,
                 scaleFactor,
-                zoomFocusPoint[0],
+                zoomFocusPoint[0],  //
                 zoomFocusPoint[1]
             )
+//            bitmapMatrix.postScale(scaleFactor,scaleFactor,focusX,focusY) 其实可以直接使用左乘，因为
             notifyCropRectChanged()
 
             invalidate()
         }
 
-        override fun onScroll(distanceX: Float, distanceY: Float) {
-            bitmapMatrix.postTranslate(-distanceX, -distanceY)
+        override fun onScroll(distanceX: Float, distanceY: Float) {  //scroll的x/y和正常坐标系是相反的，当手指向上滑动，y为正值
+            bitmapMatrix.postTranslate(-distanceX, -distanceY)  //由于方向相反，所以为负。 左乘：我们希望的是手指滑动多少距离，图片就移动多少距离，坐标不基于图片的Matrix，而是基于绝对坐标系
             invalidate()
         }
 
@@ -422,7 +423,10 @@ class CropView @JvmOverloads constructor(
         invalidate()
         return true
     }
-
+val paint=Paint().apply { color = Color.RED
+    setAntiAlias(true)
+    setTextSize(30.0f)
+}
     /**
      * Draw bitmap, cropRect, overlay
      */
@@ -430,12 +434,12 @@ class CropView @JvmOverloads constructor(
         super.onDraw(canvas)
 
         bitmap?.let { bitmap ->
-            canvas?.drawBitmap(bitmap, bitmapMatrix, emptyPaint)
+            canvas?.drawBitmap(bitmap, bitmapMatrix, emptyPaint)  //图片的绘制完全由bitmapMatrix控制
         }
 
-        canvas?.save()
-        canvas?.clipRect(cropRect, Region.Op.DIFFERENCE)
-        canvas?.drawColor(maskBackgroundColor)
+        canvas?.save()  //创建一个新图层,避免被接下来的画图操作影响
+        canvas?.clipRect(cropRect, Region.Op.DIFFERENCE)  //对于cropRect区域进行裁剪，并指定，draw前后不同时，使用draw之前的绘制
+        canvas?.drawColor(maskBackgroundColor)  //draw一个遮罩层，由于前面指定了裁剪，并且
         canvas?.restore()
 
         drawGrid(canvas)
@@ -539,10 +543,10 @@ class CropView @JvmOverloads constructor(
      */
     fun getCropSizeOriginal(): RectF {
         val cropSizeOriginal = RectF()
-        cropRectOnOriginalBitmapMatrix.reset()
-        bitmapMatrix.invert(cropRectOnOriginalBitmapMatrix)
-        cropRectOnOriginalBitmapMatrix.mapRect(cropSizeOriginal, cropRect)
-        return cropSizeOriginal
+        cropRectOnOriginalBitmapMatrix.reset()   //因为cropRect为映射后的坐标，想要转化成原始的坐标
+        bitmapMatrix.invert(cropRectOnOriginalBitmapMatrix)  //需要对原映射进行invert
+        cropRectOnOriginalBitmapMatrix.mapRect(cropSizeOriginal, cropRect)   //然后通过invert的matrix再进行映射
+        return cropSizeOriginal   //这样就知道了裁切框区域所对应的原图区域
     }
 
     /**
@@ -771,20 +775,20 @@ class CropView @JvmOverloads constructor(
      * Initializes bitmap matrix
      */
     private fun initializeBitmapMatrix() {
-        val scale = min(viewWidth / bitmapRect.width(), viewHeight / bitmapRect.height())
-        bitmapMatrix.setScale(scale, scale)
-
-        val translateX = (viewWidth - bitmapRect.width() * scale) / 2f + marginInPixelSize
-        val translateY = (viewHeight - bitmapRect.height() * scale) / 2f + marginInPixelSize
-        bitmapMatrix.postTranslate(translateX, translateY)
+        val scale = min(viewWidth / bitmapRect.width(), viewHeight / bitmapRect.height())  //将bitmap长/高 占满整个view所要的最小缩放倍数
+        bitmapMatrix.setScale(scale, scale) // 进行缩放
+        //由于缩放是针对原点。  这里想要图片的中心和 view的中心对应。所以需要x/y轴平移。
+        val translateX = (viewWidth - bitmapRect.width() * scale) / 2f + marginInPixelSize   //(view宽度- 图片缩放后宽度)/2 为view和图片中心偏移量，由于view有margin，还需要添加一个margin
+        val translateY = (viewHeight - bitmapRect.height() * scale) / 2f + marginInPixelSize  //同上
+        bitmapMatrix.postTranslate(translateX, translateY)  //左乘，在缩放的坐标系上进行translate一个 基于绝对坐标系的变换(所以上面计算时先假设图片已经缩放了)。
     }
 
     /**
      * Initializes crop rect with bitmap.
      */
-    private fun initializeCropRect() {
-        val rect = RectF(0f, 0f, bitmapRect.width(), bitmapRect.height())
-        bitmapMatrix.mapRect(cropRect, rect)
+    private fun initializeCropRect() {   //这里计算裁剪框的位置，draw时，会根据这个位置画出9宫格和四边的拖动角
+        val rect = RectF(0f, 0f, bitmapRect.width(), bitmapRect.height())  //原图片左上角和右上角的坐标
+        bitmapMatrix.mapRect(cropRect, rect) //因为图片进行了坐标系转化，所以想要知道转化后的左上角和右上角的坐标，需要mapRect映射
     }
 
     /**
@@ -1431,7 +1435,7 @@ class CropView @JvmOverloads constructor(
      */
     private fun settleDraggedBitmap() {
         val draggedBitmapRect = RectF()
-        bitmapMatrix.mapRect(draggedBitmapRect, bitmapRect)
+        bitmapMatrix.mapRect(draggedBitmapRect, bitmapRect)  //获取拖动后的图片的大小(映射后的)
 
         /**
          * Scale dragged matrix if it needs to
@@ -1441,7 +1445,7 @@ class CropView @JvmOverloads constructor(
         var scale = 1.0f
 
         if (widthScale > 1.0f || heightScale > 1.0f) {
-            scale = max(widthScale, heightScale)
+            scale = max(widthScale, heightScale)  //选取最大的进行放大，让一边刚好占满，另一边占满或者超出。这样能保证裁剪区域都有图片
         }
 
         /**
@@ -1450,15 +1454,15 @@ class CropView @JvmOverloads constructor(
         val scaledRect = RectF()
         val scaledMatrix = Matrix()
         scaledMatrix.setScale(scale, scale)
-        scaledMatrix.mapRect(scaledRect, draggedBitmapRect)
+        scaledMatrix.mapRect(scaledRect, draggedBitmapRect)  //因为上面可能要缩放，重新计算缩放后的图片区域
 
 
         /**
          * Calculate translateX
          */
         var translateX = 0f
-        if (scaledRect.left > cropRect.left) {
-            translateX = cropRect.left - scaledRect.left
+        if (scaledRect.left > cropRect.left) {  //如果图片的左侧 基于裁剪区域 右偏移       裁剪|  图片|
+            translateX = cropRect.left - scaledRect.left   //  坐标系需要向左偏移，所以取负值
         }
 
         if (scaledRect.right < cropRect.right) {
@@ -1487,14 +1491,19 @@ class CropView @JvmOverloads constructor(
         matrix.postTranslate(translateX, translateY)
         newBitmapMatrix.postConcat(matrix)
 
-        bitmapMatrix.postConcat(matrix)
-        invalidate()
-        notifyCropRectChanged()
+//        bitmapMatrix.postConcat(matrix)
+//        invalidate()
+//        notifyCropRectChanged()
 
-//        bitmapMatrix.animateToMatrix(newBitmapMatrix) {
-//            invalidate()
-//            notifyCropRectChanged()
-//        }
+//        val matrix = Matrix()
+//        matrix.setScale(scale, scale)
+//        matrix.postTranslate(translateX, translateY) //左乘: 参数基于绝对坐标系
+//        newBitmapMatrix.postConcat(matrix)
+//
+        bitmapMatrix.animateToConcatMatrix(matrix) {
+            invalidate()
+            notifyCropRectChanged()
+        }
     }
 
     /**
